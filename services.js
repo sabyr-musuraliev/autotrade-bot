@@ -129,7 +129,7 @@ const getModel = (make) => {
     return keybd;
 };
 
-const getYear = (capacity, model) => {
+const getYearForList = (capacity, model) => {
     let keybd = keyboards.yearsList1;
 
     if (model === "760" || model === "740D") {
@@ -4049,6 +4049,6 @@ module.exports = {
     getPercent,
     getModel,
     getCapacity,
-    getYear,
+    getYearForList,
     getPriceByList,
 };

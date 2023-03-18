@@ -12,6 +12,7 @@ const {
     coefficientByYear,
     getPercent,
     getModel,
+    getYearForList,
     getCapacity,
     getPriceByList,
 } = require("./services");
@@ -152,7 +153,7 @@ const getYear = new WizardScene(
 );
 
 const getPrices = new WizardScene(
-    "getPrices",
+    "getpprices",
     (ctx) => {
         bot.telegram.sendMessage(ctx.chat.id, "Выберите марку:", {
             reply_markup: {
@@ -204,7 +205,10 @@ const getPrices = new WizardScene(
             return ctx.wizard.back();
         }
         ctx.wizard.state.capacity = ctx.message.text;
-        let keyboardForYear = getYear(ctx.message.text, ctx.wizard.state.model);
+        let keyboardForYear = getYearForList(
+            ctx.message.text,
+            ctx.wizard.state.model
+        );
         bot.telegram.sendMessage(ctx.chat.id, "Выберите год:", {
             reply_markup: {
                 resize_keyboard: true,
@@ -258,6 +262,7 @@ const getPrices = new WizardScene(
 const stage = new Stage();
 stage.register(calculateAuto);
 stage.register(getYear);
+stage.register(getPrices);
 
 bot.use(session());
 bot.use(stage.middleware());
@@ -318,9 +323,9 @@ getPrices.leave((ctx) => {
     );
 });
 
-bot.hears("Список машин", (ctx) => ctx.scene.enter("getPrices"));
+bot.hears("Список машин", (ctx) => ctx.scene.enter("getpprices"));
 bot.hears("Калькулятор растоможки", (ctx) => ctx.scene.enter("calculate"));
-bot.hears("Дата выпуска по VIN коду", (ctx) => ctx.scene.enter("getYear"));
+// bot.hears("Дата выпуска по VIN коду", (ctx) => ctx.scene.enter("getYear"));
 
 bot.hears("В главное меню", (ctx) => {
     bot.telegram.sendMessage(
