@@ -6,10 +6,23 @@ const Stage = require("telegraf/stage");
 const WizardScene = require("telegraf/scenes/wizard");
 const { TELEGRAM_API_KEY, RAPID_API_KEY } = process.env;
 const token = TELEGRAM_API_KEY;
+const keyboards = require("./keyboards");
 
-const { coefficientByYear, getPercent } = require("./services");
+const {
+    coefficientByYear,
+    getPercent,
+    getModel,
+    getCapacity,
+    getPriceByList,
+} = require("./services");
 
 const bot = new Telegraf(token);
+
+const mainMenu = [
+    [{ text: "Список машин" }],
+    [{ text: "Калькулятор растоможки" }],
+    [{ text: "Дата выпуска по VIN коду" }],
+];
 
 const calculateAuto = new WizardScene(
     "calculate",
@@ -139,6 +152,110 @@ const getYear = new WizardScene(
     }
 );
 
+const getPrices = new WizardScene(
+    "getPrices",
+    (ctx) => {
+        bot.telegram.sendMessage(ctx.chat.id, "Выберите марку:", {
+            reply_markup: {
+                resize_keyboard: true,
+                one_time_keyboard: true,
+                keyboard: keyboards.makes,
+            },
+        });
+        return ctx.wizard.next();
+    },
+    (ctx) => {
+        if (ctx.message.text === "В главное меню") {
+            return ctx.scene.leave();
+        }
+        ctx.wizard.state.make = ctx.message.text;
+        let keyboardForModel = getModel(ctx.message.text);
+        bot.telegram.sendMessage(ctx.chat.id, "Выберите модель:", {
+            reply_markup: {
+                resize_keyboard: true,
+                one_time_keyboard: true,
+                keyboard: keyboardForModel,
+            },
+        });
+        return ctx.wizard.next();
+    },
+    (ctx) => {
+        if (ctx.message.text === "В главное меню") {
+            return ctx.scene.leave();
+        }
+        if (ctx.message.text === "Назад") {
+            return ctx.wizard.back();
+        }
+        ctx.wizard.state.model = ctx.message.text;
+        let keyboardForCapacity = getCapacity(ctx.message.text);
+        bot.telegram.sendMessage(ctx.chat.id, "Выберите объем:", {
+            reply_markup: {
+                resize_keyboard: true,
+                one_time_keyboard: true,
+                keyboard: keyboardForCapacity,
+            },
+        });
+        return ctx.wizard.next();
+    },
+    (ctx) => {
+        if (ctx.message.text === "В главное меню") {
+            return ctx.scene.leave();
+        }
+        if (ctx.message.text === "Назад") {
+            return ctx.wizard.back();
+        }
+        ctx.wizard.state.capacity = ctx.message.text;
+        let keyboardForYear = getYear(ctx.message.text, ctx.wizard.state.model);
+        bot.telegram.sendMessage(ctx.chat.id, "Выберите год:", {
+            reply_markup: {
+                resize_keyboard: true,
+                one_time_keyboard: true,
+                keyboard: keyboardForYear,
+            },
+        });
+        return ctx.wizard.next();
+    },
+    (ctx) => {
+        if (ctx.message.text === "В главное меню") {
+            return ctx.scene.leave();
+        }
+        if (ctx.message.text === "Назад") {
+            return ctx.wizard.back();
+        }
+        ctx.wizard.state.year = ctx.message.text;
+        bot.telegram.sendMessage(ctx.chat.id, "Метод доставки:", {
+            reply_markup: {
+                resize_keyboard: true,
+                one_time_keyboard: true,
+                keyboard: keyboards.dostavka,
+            },
+        });
+        return ctx.wizard.next();
+    },
+    (ctx) => {
+        if (ctx.message.text === "В главное меню") {
+            return ctx.scene.leave();
+        }
+        if (ctx.message.text === "Назад") {
+            return ctx.wizard.back();
+        }
+        ctx.wizard.state.dostavka = ctx.message.text;
+        let make = ctx.wizard.state.make;
+        let model = ctx.wizard.state.model;
+        let year = ctx.wizard.state.year;
+        let capacity = ctx.wizard.state.capacity;
+        let dostavka = ctx.wizard.state.dostavka;
+        let sum = getPriceByList(make, model, year, capacity, dostavka);
+        bot.telegram.sendMessage(ctx.chat.id, `Сумма: ${sum}`, {
+            reply_markup: {
+                resize_keyboard: true,
+                one_time_keyboard: true,
+                keyboard: [[{ text: "В главное меню" }]],
+            },
+        });
+    }
+);
+
 const stage = new Stage();
 stage.register(calculateAuto);
 stage.register(getYear);
@@ -154,10 +271,7 @@ bot.start((ctx) => {
             reply_markup: {
                 resize_keyboard: true,
                 one_time_keyboard: true,
-                keyboard: [
-                    [{ text: "Калькулятор растоможки" }],
-                    [{ text: "Дата выпуска по VIN коду" }],
-                ],
+                keyboard: mainMenu,
             },
         }
     );
@@ -171,10 +285,7 @@ calculateAuto.leave((ctx) => {
             reply_markup: {
                 resize_keyboard: true,
                 one_time_keyboard: true,
-                keyboard: [
-                    [{ text: "Калькулятор растоможки" }],
-                    [{ text: "Дата выпуска по VIN коду" }],
-                ],
+                keyboard: mainMenu,
             },
         }
     );
@@ -188,15 +299,27 @@ getYear.leave((ctx) => {
             reply_markup: {
                 resize_keyboard: true,
                 one_time_keyboard: true,
-                keyboard: [
-                    [{ text: "Калькулятор растоможки" }],
-                    [{ text: "Дата выпуска по VIN коду" }],
-                ],
+                keyboard: mainMenu,
             },
         }
     );
 });
 
+getPrices.leave((ctx) => {
+    bot.telegram.sendMessage(
+        ctx.chat.id,
+        "Вы в главном меню! Выберите услугу.",
+        {
+            reply_markup: {
+                resize_keyboard: true,
+                one_time_keyboard: true,
+                keyboard: mainMenu,
+            },
+        }
+    );
+});
+
+bot.hears("Список машин", (ctx) => ctx.scene.enter("getPrices"));
 bot.hears("Калькулятор растоможки", (ctx) => ctx.scene.enter("calculate"));
 bot.hears("Дата выпуска по VIN коду", (ctx) => ctx.scene.enter("getYear"));
 
@@ -208,10 +331,7 @@ bot.hears("В главное меню", (ctx) => {
             reply_markup: {
                 resize_keyboard: true,
                 one_time_keyboard: true,
-                keyboard: [
-                    [{ text: "Калькулятор растоможки" }],
-                    [{ text: "Дата выпуска по VIN коду" }],
-                ],
+                keyboard: mainMenu,
             },
         }
     );
