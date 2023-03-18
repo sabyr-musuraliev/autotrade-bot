@@ -21,7 +21,6 @@ const bot = new Telegraf(token);
 const mainMenu = [
     [{ text: "Список машин" }],
     [{ text: "Калькулятор растоможки" }],
-    [{ text: "Дата выпуска по VIN коду" }],
 ];
 
 const calculateAuto = new WizardScene(
